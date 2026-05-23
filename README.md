@@ -92,7 +92,6 @@ python -m sprite_gen process <raw-sheet>.png --cols N -o out/ [--static] [--chro
 
 ## Credits
 
-- Sprite-sheet 切格 / chroma key / GIF encoder 改寫自 [`0x0funky/agent-sprite-forge`](https://github.com/0x0funky/agent-sprite-forge)（MIT，見 [`third_party/agent-sprite-forge-LICENSE`](third_party/agent-sprite-forge-LICENSE)）
 - 圖像生成由 [Codex CLI](https://developers.openai.com/codex/cli) + `gpt-image-2` 完成
 
 ## License

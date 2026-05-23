@@ -1,13 +1,8 @@
 """Postprocess raw codex-generated sprite sheets.
 
-Two slicing modes:
-- chroma_key=True (magenta_grid template): remove #FF00FF background, trim,
-  align, output transparent atlas + GIF.
-- chroma_key=False (hd2d_anime_32frame and other reference-bg templates):
-  keep the rendered background, slice the strip into equal cells.
-
-In keep_bg mode, if `also_auto_rembg=True` we additionally run auto_rembg on
-every frame and save a parallel `transparent/` bundle (frames + strip + GIF).
+The sheet has a flat chroma-green (#00B140) background. We slice the strip into
+equal vertical panels, then run auto_rembg on every frame to produce a parallel
+`transparent/` bundle (frames + strip + GIF) alongside the with-background one.
 
 We never resample the codex-generated raw — the prompt is responsible for
 producing an N:1 aspect ratio with equal-width panels, and we slice at the
@@ -25,7 +20,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import _vendored_postprocess as vp
 from .auto_rembg import auto_remove_bg, save_transparent_gif
 
 CHROMA_GREEN: tuple[int, int, int] = (0, 177, 64)
@@ -817,55 +811,9 @@ def process_sheet(raw_png: Path, output_dir: Path, opts: ProcessOptions) -> Proc
     raw = Image.open(raw_png).convert("RGBA")
     raw.save(output_dir / "raw-sheet.png")
 
-    if opts.chroma_key:
-        result = _process_chroma(raw, raw_png, output_dir, opts)
-    else:
-        result = _process_keep_bg(raw, raw_png, output_dir, opts)
-
+    result = _process_keep_bg(raw, raw_png, output_dir, opts)
     result.raw_size_actual = raw.size
     return result
-
-
-def _process_chroma(
-    raw: Image.Image, raw_png: Path, output_dir: Path, opts: ProcessOptions
-) -> ProcessResult:
-    cleaned_full = vp.remove_bg_magenta(raw.copy(), opts.threshold, opts.edge_threshold)
-    cleaned_full.save(output_dir / "raw-sheet-clean.png")
-
-    frames, frame_qc = vp.split_grid(
-        raw,
-        opts.rows,
-        opts.cols,
-        opts.cell_size,
-        opts.threshold,
-        opts.edge_threshold,
-        fit_scale=opts.fit_scale,
-        trim_border_px=opts.trim_border,
-        edge_clean_depth=opts.edge_clean_depth,
-        align=opts.align,
-        shared_scale=opts.shared_scale,
-        component_mode=opts.component_mode,
-        component_padding=opts.component_padding,
-        min_component_area=opts.min_component_area,
-        edge_touch_margin=opts.edge_touch_margin,
-    )
-
-    frame_paths = _save_frames(frames, output_dir, opts.label_prefix)
-    sheet_path = output_dir / "sheet-transparent.png"
-    vp.compose_sheet(frames, opts.rows, opts.cols, opts.cell_size).save(sheet_path)
-    gif_path = output_dir / "animation.gif"
-    vp.save_transparent_gif(frames, gif_path, opts.duration_ms)
-
-    edge_touch = [info["grid"] for info in frame_qc if bool(info.get("edge_touch"))]
-    meta_path = _write_meta(output_dir, raw_png, opts, frame_qc, edge_touch, mode="chroma")
-    return ProcessResult(
-        output_dir=output_dir,
-        sheet=sheet_path,
-        animation_gif=gif_path,
-        frame_paths=frame_paths,
-        edge_touch_frames=edge_touch,
-        meta_path=meta_path,
-    )
 
 
 def _process_keep_bg(

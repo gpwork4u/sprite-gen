@@ -58,8 +58,8 @@ def _cmd_process(args: argparse.Namespace) -> int:
         ProcessOptions(
             rows=args.rows,
             cols=args.cols,
-            chroma_key=args.chroma_key,
-            also_auto_rembg=not args.chroma_key,
+            chroma_key=False,
+            also_auto_rembg=True,
             duration_ms=args.duration,
             label_prefix=args.label_prefix,
             output_frame_size=args.frame_size,
@@ -94,8 +94,6 @@ def main(argv: list[str] | None = None) -> int:
     proc_p.add_argument("--rows", type=int, default=1)
     proc_p.add_argument("--cols", type=int, required=True)
     proc_p.add_argument("--frame-size", type=int, default=384, help="Square output frame size.")
-    proc_p.add_argument("--chroma-key", action="store_true",
-                        help="Magenta #FF00FF chroma mode (default: chroma-green keep-bg + auto rembg).")
     proc_p.add_argument("--static", action="store_true",
                         help="Per-frame size normalization (uniform variation sheet). Off = shared scale.")
     proc_p.add_argument("--duration", type=int, default=120)

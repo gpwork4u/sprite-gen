@@ -29,6 +29,16 @@ description: 用 codex CLI 內建 image_gen 自動生成 pixel-art 角色 sprite
    ```
    後續所有指令都用 `.venv/bin/python`。
 
+## 自動撰寫原則（重要）
+
+使用者通常只給**一句粗略描述**（例如「一個森林精靈弓箭手」）。你的工作是**自動把它補完成一份完整 pack YAML 並直接生圖**，不要反問一堆問題。具體：
+
+- **把一句話展開成 4–6 行具體 `design`**：補上髮型/髮色、服裝、配件/武器、體型比例、畫風（chunky pixel outlines 等）。描述要具體可重現——這是無 reference 時角色的唯一依據。
+- **自動挑動作組合**：使用者沒指定就給一套常見的（`idle` + `walk` + `attack`）；有指定就照他的。格數用預設（idle/hurt 3–4、walk/run 6、attack 5–6）。
+- **自動挑 `view`**：橫向捲軸/平台遊戲角色用 `side`；頭像/正面立繪用 `front`；道具用 `static_asset`。
+- **只在描述真的不足以推斷時才問**（例如完全沒講是角色還是物件）。其餘用合理預設並在回覆裡說明你選了什麼。
+- 寫完 YAML **先快速 dry-run 自查 prompt**，沒問題就**直接真跑**，最後用讀圖工具看 `transparent-strip.png` 確認再交 GIF 給使用者。
+
 ## 工作流程（給 Claude 的步驟）
 
 1. **把使用者需求轉成一份 pack YAML**。每個角色一個 `id` + `design`（一行一個外觀特徵）+ `actions`（要哪些動作、幾格）。靜態素材放 `assets`。範本見 `examples/pack.yaml`。重點：
@@ -87,3 +97,53 @@ assets:
 ```
 
 完整可執行範本：`examples/pack.yaml`。
+
+## 使用範例：一句描述 → 自動生圖
+
+> **使用者**：「幫我做一個森林精靈弓箭手，要待機、走路、射箭三個動作。」
+
+Claude（用此 skill）應**自動**做完以下事，過程中不反問：
+
+**1. 把粗略描述展開並寫出 `/tmp/elf.yaml`：**
+
+```yaml
+output_root: .sprites
+defaults: { template: sidescroller_character, view: side, frames_per_image: 4, frame_size_px: 384, duration_ms: 120, qc_max_retries: 4, max_workers: 2 }
+characters:
+  - id: elf-archer
+    design:
+      - "lithe female forest elf, long pointed ears, braided emerald-green hair"
+      - "hooded leather tunic in mossy green and brown, fingerless gloves"
+      - "carved wooden longbow, quiver of arrows on the back"
+      - "chibi proportions, roughly 3 heads tall, chunky readable pixel-art outlines"
+    actions:
+      - { action: idle,   frames: 4, notes: "calm breathing, bow held loosely at side" }
+      - { action: walk,   frames: 6, notes: "light forward steps, bow in hand" }
+      - { action: attack, frames: 6, notes: "draw arrow, aim, release, recover" }
+```
+
+**2. dry-run 自查 → 直接真跑：**
+
+```bash
+.venv/bin/python -m sprite_gen pack /tmp/elf.yaml --dry-run   # 快速確認 prompt
+.venv/bin/python -m sprite_gen pack /tmp/elf.yaml             # 真跑（背景執行，輪詢）
+```
+
+**3. 檢視 `transparent-strip.png` 確認角色一致/去背乾淨，把 GIF 交給使用者：**
+
+```
+.sprites/elf-archer/idle/final/transparent.gif
+.sprites/elf-archer/walk/final/transparent.gif
+.sprites/elf-archer/attack/final/transparent.gif
+```
+
+並回報：「幫你補了精靈弓箭手的外觀細節（綠髮辮、苔綠皮甲、木長弓+箭袋），生了 idle/walk/attack 三套側視動畫，逐格去背都在 `.sprites/elf-archer/`。」
+
+### 更多觸發範例
+
+| 使用者說 | skill 自動做 |
+|---|---|
+| 「生一隻紅色小恐龍的走路動畫」 | 1 角色 `dino`，`design` 補紅色小恐龍細節，`actions: [walk]`（frames 6） |
+| 「我要一套 RPG 藥水圖示」 | `assets` 一個 `static_asset`，`variations` 補紅/藍/綠/金藥水 |
+| 「賽博龐克女駭客，待機+攻擊」 | 1 角色，`design` 補霓虹髮色/科技外套/數據手套，`actions: [idle, attack]` |
+| 「一把魔法劍的圖示」 | `assets` 單一 `static_asset`（無 variations → 單張置中精靈圖） |
