@@ -1,0 +1,64 @@
+# sprite-gen asset pack — text-to-sprite (no reference image required).
+#
+#   python -m sprite_gen pack examples/pack.yaml --dry-run   # prompts only
+#   python -m sprite_gen pack examples/pack.yaml             # real generation
+#
+# Each character action becomes one horizontal animation strip under
+# .dream/<id>/<action>/ ; static assets become .dream/<id>/ . Everything is
+# described purely in text — codex invents the sprite and the QC-retry loop +
+# layout constraints hold it consistent across panels.
+
+output_root: .sprites
+
+defaults:
+  template: sidescroller_character   # 2D side-scroller / platformer view
+  view: side                         # side | front | back | 3/4 | topdown
+  frames_per_image: 4
+  frame_size_px: 384
+  duration_ms: 120
+  qc_max_retries: 4
+  max_workers: 2
+
+characters:
+  - id: knight
+    design:
+      - "young knight, short tousled brown hair, determined expression"
+      - "light steel plate armor over a deep-blue tunic, brown leather belt"
+      - "round wooden shield strapped to the left arm, short steel sword in the right hand"
+      - "chibi proportions, roughly 3 heads tall, chunky readable pixel-art outlines"
+    actions:
+      - { action: idle,   frames: 4, notes: "calm breathing loop, slight weight shift" }
+      - { action: walk,   frames: 6, notes: "steady ground march, sword and shield held ready" }
+      - { action: run,    frames: 6, notes: "forward sprint, leaning into the run" }
+      - { action: jump,   frames: 4, notes: "crouch, leap, apex, land" }
+      - { action: attack, frames: 5, notes: "horizontal overhead sword swing" }
+      - { action: hurt,   frames: 3, notes: "knockback recoil from a hit" }
+
+  - id: slime
+    design:
+      - "small round blue slime monster, glossy translucent body"
+      - "two simple black dot eyes, tiny mouth, a single highlight on top"
+      - "no limbs; moves by squashing and stretching; cute readable silhouette"
+    actions:
+      - { action: idle,   frames: 4, notes: "gentle squash-and-stretch idle bob" }
+      - { action: walk,   frames: 6, notes: "hopping forward, squash on land, stretch in air" }
+      - { action: hurt,   frames: 3, notes: "splat recoil, body flattens then recovers" }
+
+assets:
+  - id: potions
+    name: potion
+    design:
+      - "RPG consumable icons, small glass potion bottles with a cork stopper"
+      - "chunky pixel-art outlines, glossy liquid with a single bright highlight"
+    variations:
+      - "red health potion, ruby-red liquid"
+      - "blue mana potion, sapphire-blue liquid"
+      - "green poison vial, murky green liquid with a skull label"
+      - "golden elixir, glowing amber liquid"
+
+  - id: sword-icon
+    name: sword
+    design:
+      - "a single fantasy short sword icon, steel blade, leather-wrapped grip, brass crossguard"
+      - "clean pixel-art outline, 3/4 angled presentation, game inventory icon style"
+    # no variations -> a single centered sprite
