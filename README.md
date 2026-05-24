@@ -6,6 +6,41 @@
 
 同時是一個 [Claude Code](https://claude.com/claude-code) **skill**（見 [`SKILL.md`](SKILL.md)）：把整個 repo 放到 `~/.claude/skills/sprite-gen/`，Claude 就會在你要求生 sprite 時自動使用。
 
+## 快速開始（3 步）
+
+```bash
+# 1) 安裝（在你的專案根目錄）
+git clone https://github.com/gpwork4u/sprite-gen.git .claude/skills/sprite-gen
+( cd .claude/skills/sprite-gen && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt )
+
+# 2) 跑內建範例（先 --dry-run 看 prompt，不花 token）
+.claude/skills/sprite-gen/.venv/bin/python -m sprite_gen pack \
+  .claude/skills/sprite-gen/examples/pack.yaml --dry-run
+
+# 3) 真跑，素材會落在當前目錄的 .sprites/
+.claude/skills/sprite-gen/.venv/bin/python -m sprite_gen pack \
+  .claude/skills/sprite-gen/examples/pack.yaml
+```
+
+**用 Claude 更省事**：裝好後直接說「生一隻騎士的 idle/walk/attack 動畫」，Claude 會自動寫好 spec 並呼叫此 skill。
+
+需要先 [`codex login`](https://developers.openai.com/codex/cli)（圖像生成靠 Codex CLI 內建 `image_gen`）。完整選項見下方 [用法](#用法)。
+
+## 直接對 Claude 說什麼（範例 prompt）
+
+裝成 skill 後，你**不用寫 YAML**，直接用一句話描述即可，Claude 會自動展開成完整 spec、dry-run 自查、再真跑，最後把去背 GIF 交給你：
+
+| 你想要的 | 直接這樣說 |
+|---|---|
+| 一整套角色動畫 | 「生一隻森林精靈弓箭手的 idle / walk / attack 像素動畫」 |
+| 指定畫風與比例 | 「做一個 Q 版騎士 sprite，藍色斗篷、chunky pixel outlines，要 idle、walk、run、jump」 |
+| 用既有角色圖做動畫 | 「這張角色圖（附圖）幫我做成側視 walk + attack 動畫」 |
+| 靜態道具 / 圖示 | 「生一組像素藥水圖示：紅補血、藍補魔、綠毒，要透明去背」 |
+| 敵人 / 怪物 | 「生一隻史萊姆怪的 idle 跟 hurt 動畫，topdown 視角」 |
+| 重切 / 重去背已生成的圖 | 「把這張 sprite sheet 重新切 6 格並去背」 |
+
+Claude 會自動挑好 `view`（橫向捲軸用 side、立繪用 front、道具用 static_asset）、動作組合與格數；只在描述真的不足以判斷時才反問。想先看 prompt 不花 token，就加一句「**先 dry-run 給我看**」。
+
 ## 需求
 
 - [Codex CLI](https://developers.openai.com/codex/cli) `>=0.128`（內建 `image_gen`），且已 `codex login`
