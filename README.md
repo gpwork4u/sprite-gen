@@ -6,6 +6,26 @@
 
 同時是一個 [Claude Code](https://claude.com/claude-code) **skill**（見 [`SKILL.md`](SKILL.md)）：把整個 repo 放到 `~/.claude/skills/sprite-gen/`，Claude 就會在你要求生 sprite 時自動使用。
 
+## 快速開始（3 步）
+
+```bash
+# 1) 安裝（在你的專案根目錄）
+git clone https://github.com/gpwork4u/sprite-gen.git .claude/skills/sprite-gen
+( cd .claude/skills/sprite-gen && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt )
+
+# 2) 跑內建範例（先 --dry-run 看 prompt，不花 token）
+.claude/skills/sprite-gen/.venv/bin/python -m sprite_gen pack \
+  .claude/skills/sprite-gen/examples/pack.yaml --dry-run
+
+# 3) 真跑，素材會落在當前目錄的 .sprites/
+.claude/skills/sprite-gen/.venv/bin/python -m sprite_gen pack \
+  .claude/skills/sprite-gen/examples/pack.yaml
+```
+
+**用 Claude 更省事**：裝好後直接說「生一隻騎士的 idle/walk/attack 動畫」，Claude 會自動寫好 spec 並呼叫此 skill。
+
+需要先 [`codex login`](https://developers.openai.com/codex/cli)（圖像生成靠 Codex CLI 內建 `image_gen`）。完整選項見下方 [用法](#用法)。
+
 ## 需求
 
 - [Codex CLI](https://developers.openai.com/codex/cli) `>=0.128`（內建 `image_gen`），且已 `codex login`
