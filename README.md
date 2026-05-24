@@ -14,6 +14,25 @@
 
 ## 安裝
 
+### 方式 A — 裝成「當前 repo」的 Claude Code skill（推薦）
+
+在你**正在開發的專案根目錄**執行，把 sprite-gen clone 進該專案的 `.claude/skills/`，Claude 在這個 repo 工作時就會自動有 `sprite-gen` skill：
+
+```bash
+# 在你的專案根目錄下
+git clone https://github.com/gpwork4u/sprite-gen.git .claude/skills/sprite-gen
+( cd .claude/skills/sprite-gen && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt )
+```
+
+之後直接跟 Claude 說「生一隻 XX 角色的 walk/idle」即可；生成的素材會落在**當前專案目錄**的 `.sprites/`。
+
+> 建議把 `.claude/skills/sprite-gen/.venv/` 與 `.sprites/` 加進專案的 `.gitignore`；
+> 若不想連 skill 原始碼一起 commit 進你的 repo，把整個 `.claude/skills/sprite-gen/` 也 ignore 掉即可。
+
+裝成**全使用者通用**（所有專案都可用）就改 clone 到 `~/.claude/skills/sprite-gen`。
+
+### 方式 B — 獨立 CLI 使用（不當 skill）
+
 ```bash
 git clone https://github.com/gpwork4u/sprite-gen.git
 cd sprite-gen
