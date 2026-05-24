@@ -21,13 +21,21 @@ description: 用 codex CLI 內建 image_gen 自動生成 pixel-art 角色 sprite
    codex login              # 若尚未登入（互動式，請使用者自行執行）
    ```
    若使用者尚未登入，請他在對話框輸入 `! codex login` 自行完成。
-2. **Python 3.10+** 與相依套件（numpy / Pillow / PyYAML）。建議用此 skill 目錄下的 venv：
+2. **Python 3.10+** 與相依套件（numpy / Pillow / PyYAML）。在此 skill 目錄下建一次 venv：
    ```bash
-   cd "<skill-dir>"                       # 此 SKILL.md 所在目錄
-   python3 -m venv .venv
-   .venv/bin/pip install -r requirements.txt
+   ( cd "$HOME/.claude/skills/sprite-gen" && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt )
    ```
-   後續所有指令都用 `.venv/bin/python`。
+
+## 執行方式（重要：圖要存到「當前目錄」）
+
+**不要 `cd` 進 skill 目錄執行** — 否則相對的 `.sprites/` 會掉進 skill 資料夾。請**留在使用者當前工作目錄**，用 `PYTHONPATH` 指向 skill 來跑：
+
+```bash
+SG="$HOME/.claude/skills/sprite-gen"
+PYTHONPATH="$SG" "$SG/.venv/bin/python" -m sprite_gen pack <spec>.yaml [--dry-run]
+```
+
+這樣 `output_root`（預設 `.sprites/`，相對路徑）會落在**使用者當前目錄**底下。spec 裡用相對的 `output_root: .sprites` 即可；只有在需要明確指定時才寫絕對路徑。下面所有指令都套這個 `$SG` 格式。
 
 ## 自動撰寫原則（重要）
 
@@ -48,13 +56,13 @@ description: 用 codex CLI 內建 image_gen 自動生成 pixel-art 角色 sprite
 
 2. **先 dry-run**，把所有 prompt 寫出來給使用者（或自己）審，不花 token：
    ```bash
-   .venv/bin/python -m sprite_gen pack <spec>.yaml --dry-run
+   PYTHONPATH="$SG" "$SG/.venv/bin/python" -m sprite_gen pack <spec>.yaml --dry-run
    ```
    prompt 會寫到 `<output_root>/<id>/<action>/[chunk-NN/]prompt.txt`。
 
 3. **小量真跑驗證**整條鏈再放大（codex 每張圖約 10–60s，計入 codex 額度）。建議先留 1 個角色的 idle + 1 個 walk：
    ```bash
-   .venv/bin/python -m sprite_gen pack <spec>.yaml
+   PYTHONPATH="$SG" "$SG/.venv/bin/python" -m sprite_gen pack <spec>.yaml
    ```
    每張圖會跑 QC：切格後自動檢查 clipping / 大小漂移，失敗會帶著錯誤訊息重試（預設最多 4 次）。
 
@@ -72,7 +80,7 @@ description: 用 codex CLI 內建 image_gen 自動生成 pixel-art 角色 sprite
 - **去背**：背景固定用 chroma green `#00B140`，post-process 自動 key 掉。角色若含相近綠色，prompt 已要求偏移色相。
 - **重新後處理**：已生成的 raw 圖存在各 `attempt-NN/raw-from-codex.png`，可用 `process` 子指令重切 / 重去背而**不重呼叫 codex**：
   ```bash
-  .venv/bin/python -m sprite_gen process <raw>.png --cols 4 -o out/
+  PYTHONPATH="$SG" "$SG/.venv/bin/python" -m sprite_gen process <raw>.png --cols 4 -o out/
   ```
 
 ## 範例 pack 片段
@@ -125,8 +133,8 @@ characters:
 **2. dry-run 自查 → 直接真跑：**
 
 ```bash
-.venv/bin/python -m sprite_gen pack /tmp/elf.yaml --dry-run   # 快速確認 prompt
-.venv/bin/python -m sprite_gen pack /tmp/elf.yaml             # 真跑（背景執行，輪詢）
+PYTHONPATH="$SG" "$SG/.venv/bin/python" -m sprite_gen pack /tmp/elf.yaml --dry-run   # 快速確認 prompt
+PYTHONPATH="$SG" "$SG/.venv/bin/python" -m sprite_gen pack /tmp/elf.yaml             # 真跑（背景執行，輪詢）
 ```
 
 **3. 檢視 `transparent-strip.png` 確認角色一致/去背乾淨，把 GIF 交給使用者：**
