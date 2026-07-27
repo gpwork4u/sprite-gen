@@ -62,6 +62,9 @@ class CharacterSpec:
     frame_size_px: int = 384
     duration_ms: int = 120
     qc_max_retries: int = 4
+    art_style: str = "pixel_art"   # see templates._STYLE_PRESETS
+    style_prefix: str = ""         # full override of the opening style line
+    style_block: str = ""          # full override of the STYLE: block
 
 
 @dataclass
@@ -73,6 +76,9 @@ class AssetSpec:
     template: str = "static_asset"
     frame_size_px: int = 384
     qc_max_retries: int = 3
+    art_style: str = "pixel_art"
+    style_prefix: str = ""
+    style_block: str = ""
 
 
 @dataclass
@@ -121,6 +127,9 @@ def load_pack(path: Path, output_root: Path | None = None) -> PackConfig:
                 frame_size_px=int(c.get("frame_size_px", d("frame_size_px", 384))),
                 duration_ms=int(c.get("duration_ms", d("duration_ms", 120))),
                 qc_max_retries=int(c.get("qc_max_retries", d("qc_max_retries", 4))),
+                art_style=c.get("art_style", d("art_style", "pixel_art")),
+                style_prefix=c.get("style_prefix", d("style_prefix", "")),
+                style_block=c.get("style_block", d("style_block", "")),
             )
         )
 
@@ -135,6 +144,9 @@ def load_pack(path: Path, output_root: Path | None = None) -> PackConfig:
                 template=a.get("template", "static_asset"),
                 frame_size_px=int(a.get("frame_size_px", d("frame_size_px", 384))),
                 qc_max_retries=int(a.get("qc_max_retries", d("qc_max_retries", 3))),
+                art_style=a.get("art_style", d("art_style", "pixel_art")),
+                style_prefix=a.get("style_prefix", d("style_prefix", "")),
+                style_block=a.get("style_block", d("style_block", "")),
             )
         )
 
@@ -229,12 +241,17 @@ def _build_inputs(
     *, template: str, animation_type: str, animation_details: str, design: list[str],
     view: str, num_images: int, frames_per_image: int, image_index: int,
     frame_size_px: int, variations: list[str], asset_name: str,
+    art_style: str = "pixel_art", style_prefix: str = "", style_block: str = "",
+    from_reference: bool = False,
 ) -> TemplateInputs:
     return TemplateInputs(
         animation_type=animation_type,
         animation_details=animation_details,
         character_design=design,
-        from_reference=False,
+        from_reference=from_reference,
+        art_style=art_style,
+        style_prefix=style_prefix,
+        style_block=style_block,
         view=view,
         num_images=num_images,
         frames_per_image=frames_per_image,
@@ -261,6 +278,9 @@ def _generate_unit(
     variations: list[str],
     asset_name: str,
     dry_run: bool,
+    art_style: str = "pixel_art",
+    style_prefix: str = "",
+    style_block: str = "",
 ) -> UnitOutcome:
     """Generate ONE strip (a character action, or a static-asset variation sheet)."""
     started = time.monotonic()
@@ -284,6 +304,14 @@ def _generate_unit(
             frame_size_px=frame_size_px,
             variations=variations,
             asset_name=asset_name,
+            art_style=art_style,
+            style_prefix=style_prefix,
+            style_block=style_block,
+            # Chunks after the first DO get the previous strip attached as a
+            # reference image (see extra_reference_images below), so the body must
+            # not claim "no reference image is attached" — that contradiction was
+            # degrading chunk-to-chunk consistency.
+            from_reference=(chunk_idx > 0),
         )
         # Number frames against the whole animation so chunk N shows its real slice.
         inp.total_frames_override = total_frames
@@ -434,6 +462,9 @@ def _character_units(c: CharacterSpec, root: Path, dry_run: bool) -> list[dict]:
             variations=[],
             asset_name="",
             dry_run=dry_run,
+            art_style=c.art_style,
+            style_prefix=c.style_prefix,
+            style_block=c.style_block,
         ))
     return units
 
@@ -457,6 +488,9 @@ def _asset_unit(a: AssetSpec, root: Path, dry_run: bool) -> dict:
         variations=variations,
         asset_name=a.name or a.id,
         dry_run=dry_run,
+        art_style=a.art_style,
+        style_prefix=a.style_prefix,
+        style_block=a.style_block,
     )
 
 
