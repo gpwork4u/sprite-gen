@@ -47,8 +47,17 @@ class TemplateInputs:
     # grid params (used by magenta_grid)
     rows: int = 2
     cols: int = 2
-    view: str = "side"            # side | topdown | 3/4 | front | back
-    art_style: str = "pixel_art"  # pixel_art | retro_pixel | pixel_inspired | clean_hd
+    # side | front | back | 3/4 | topdown | topdown_down | topdown_up | topdown_side
+    # The three `topdown_*` variants pin the facing direction, which is what a
+    # 4-direction top-down RPG character set needs (the _side sheet is mirrored
+    # at import time to get the left-facing set).
+    view: str = "side"
+    # Selects an entry from _STYLE_PRESETS: pixel_art (default, the historical
+    # hard-coded HD-2D anime wording) | topdown_rpg | retro_pixel
+    art_style: str = "pixel_art"
+    # Full override of the style wording. Non-empty values win over art_style.
+    style_prefix: str = ""        # replaces the prompt's opening style line
+    style_block: str = ""         # replaces the STYLE: block
     notes: str = ""
 
     # text-to-sprite design (used by sidescroller_character / static_asset).
@@ -405,6 +414,15 @@ def _action_frame_design(action: str, total_frames: int, frame_start: int, count
     return "\n".join(lines)
 
 
+_TOPDOWN_COMMON = (
+    "TOP-DOWN 3/4 view for a top-down RPG (Zelda / Stardew style camera). "
+    "The camera looks DOWN at the character at a 60° pitch — you see the top of the head and the "
+    "shoulders clearly, and the ground plane recedes upward. This is NOT a flat 90° bird's-eye view "
+    "(the face must stay readable) and NOT a side-scroller profile. "
+    "Full body visible. Keep the SAME 60° camera pitch in every panel — do NOT let perspective drift "
+    "between panels, and do NOT tilt the camera toward a side view in any frame."
+)
+
 _VIEW_DESCRIPTIONS: dict[str, str] = {
     "side": (
         "STRICT 90° SIDE / PROFILE view — a 2D side-scroller / platformer sprite. "
@@ -417,8 +435,75 @@ _VIEW_DESCRIPTIONS: dict[str, str] = {
     "front": "FRONT view, character facing the camera, full body visible",
     "back": "BACK view, character seen from behind, full body visible",
     "3/4": "3/4 view from slightly above, full body visible",
-    "topdown": "top-down 3/4 view from above, full body visible",
+    # Generic top-down. Prefer the direction-locked variants below for 4-direction
+    # character sets — they pin the facing so the three sheets stay consistent.
+    "topdown": _TOPDOWN_COMMON,
+    "topdown_down": (
+        _TOPDOWN_COMMON + " The character faces TOWARD the camera (walking DOWN / south, "
+        "toward the viewer): both eyes visible, chest and toes pointing at the viewer."
+    ),
+    "topdown_up": (
+        _TOPDOWN_COMMON + " The character faces AWAY from the camera (walking UP / north, "
+        "away from the viewer): the back of the head and the back of the torso are what we see. "
+        "The face is NOT visible."
+    ),
+    "topdown_side": (
+        _TOPDOWN_COMMON + " The character faces to the RIGHT (walking EAST) in a top-down 3/4 "
+        "three-quarter profile: ONE side of the face is visible plus a hint of the far cheek, "
+        "shoulders angled, and the top of the head still clearly in view. "
+        "Keep the SAME right-facing orientation in every panel — this sheet is mirrored "
+        "horizontally at import time to produce the left-facing set, so it must never drift "
+        "toward front-facing or toward a flat side profile."
+    ),
 }
+
+# Views whose subject stands on a ground plane, so "feet on a constant groundline"
+# is a meaningful constraint. Top-down has no groundline — anchoring the FEET there
+# makes the model shrink/shift the body, so those views anchor the BODY CENTRE instead.
+_GROUNDLINE_VIEWS = frozenset({"side", "front", "back", "3/4"})
+
+
+# ── Art-style presets ────────────────────────────────────────────────────────
+# The opening line and STYLE block used to be hard-coded, which made the whole
+# generator produce HD-2D anime side-scroller art regardless of the target game.
+# `pixel_art` reproduces that original wording byte-for-byte so existing specs
+# are unaffected; pass `art_style: <key>` (or `style_prefix` / `style_block` for
+# full control) in the pack YAML to select another look.
+_STYLE_PRESETS: dict[str, tuple[str, str]] = {
+    "pixel_art": (
+        "anime pixel art, modern HD-2D 2D side-scroller sprite style, clean pixel line art, "
+        "soft pixel shading, consistent character identity, frame-consistent sprite animation",
+        "high quality anime pixel art, clean outlines, soft pixel shading, simple lighting, "
+        "2D illustration style, no realistic rendering, stable sprite consistency",
+    ),
+    "topdown_rpg": (
+        "warm hand-crafted pixel art for a top-down 2D RPG, cosy storybook palette, "
+        "clean readable silhouette, consistent character identity, frame-consistent sprite animation",
+        "warm hand-painted pixel art, selective 1px outlines in a darkened hue-shifted tone "
+        "(never pure black), soft two-to-three step shading, single light source from the upper "
+        "left, muted saturation with restrained highlights, no realistic rendering, no gradients, "
+        "no anti-aliased soft edges, stable sprite consistency",
+    ),
+    "retro_pixel": (
+        "retro 16-bit pixel art, limited palette, chunky readable pixels, "
+        "consistent character identity, frame-consistent sprite animation",
+        "retro 16-bit console pixel art, hard 1px outlines, flat two-tone shading, "
+        "no gradients, no anti-aliasing, stable sprite consistency",
+    ),
+}
+
+
+def _style_for(inp: "TemplateInputs") -> tuple[str, str]:
+    """Resolve (opening line, STYLE block) for this request.
+
+    Explicit `style_prefix` / `style_block` win; otherwise the `art_style` preset
+    is used, falling back to `pixel_art` (the historical hard-coded wording).
+    """
+    preset = _STYLE_PRESETS.get(inp.art_style, _STYLE_PRESETS["pixel_art"])
+    return (
+        (getattr(inp, "style_prefix", "") or preset[0]),
+        (getattr(inp, "style_block", "") or preset[1]),
+    )
 
 
 def sidescroller_character(inp: TemplateInputs) -> str:
@@ -443,6 +528,18 @@ def sidescroller_character(inp: TemplateInputs) -> str:
         "drift into a 3/4 or front-facing pose"
         if inp.view == "side" else ""
     )
+    # Top-down has no groundline; anchoring the feet there makes the model shrink
+    # or shift the body between panels. Anchor the body centre instead.
+    anchor_line = (
+        "the character's feet rest on the SAME horizontal groundline in every panel "
+        "(do not draw the ground itself — only keep the feet at a constant y)"
+        if inp.view in _GROUNDLINE_VIEWS else
+        "the character's BODY CENTRE sits at the SAME x and y position in every panel, at the "
+        "SAME scale (do not draw any ground, floor tiles, or cast shadow — the character floats "
+        "alone on the flat chroma background). Do NOT anchor the feet to a horizontal line; there "
+        "is no ground plane in this view"
+    )
+    style_prefix, style_block = _style_for(inp)
     design = inp.character_design or inp.identity_lines
 
     if inp.from_reference:
@@ -460,17 +557,17 @@ def sidescroller_character(inp: TemplateInputs) -> str:
             + (_bullets(design) if design else "- (no design given; invent a clean, readable game character)")
         )
 
-    return f"""anime pixel art, modern HD-2D 2D side-scroller sprite style, clean pixel line art, soft pixel shading, consistent character identity, frame-consistent sprite animation
+    return f"""{style_prefix}
 
 {source_block}
 
 VIEW / CAMERA:
 - {view}
 - static camera, identical camera distance and angle in every panel
-- the character's feet rest on the SAME horizontal groundline in every panel (do not draw the ground itself — only keep the feet at a constant y){view_extra}
+- {anchor_line}{view_extra}
 
 STYLE:
-high quality anime pixel art, clean outlines, soft pixel shading, simple lighting, 2D illustration style, no realistic rendering, stable sprite consistency
+{style_block}
 
 {chroma_background_block()}
 
